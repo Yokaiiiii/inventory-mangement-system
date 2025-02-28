@@ -19,12 +19,15 @@ def create_table():
     try:
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS supplier_data (
-            invoice INT PRIMARY KEY,
-            name VARCHAR(100),
-            contact VARCHAR(15),
-            description VARCHAR(500)
-            )
+            invoice INT PRIMARY KEY ,  -- Unique identifier, auto-incremented
+            name VARCHAR(100) NOT NULL,  -- Name is required
+            contact VARCHAR(15) NOT NULL UNIQUE,  -- Contact must be unique
+            description VARCHAR(500) DEFAULT 'No description provided',  -- Default value for description
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Track record creation time
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP-- Auto-update timestamp
+        )
         """)
+        connection.commit()
     except Exception as error:
         messagebox.showerror("Error", str(error))
     finally:
@@ -51,10 +54,11 @@ def add_supplier(invoice, name, contact, description):
             if cursor.fetchone():
                 messagebox.showerror("Error", f"Invoice {invoice} already exists")
                 return
-            cursor.execute("INSERT INTO supplier_data values (%s, %s, %s, %s)", (invoice, name, contact, description))
+            cursor.execute("INSERT INTO supplier_data (invoice,  name, contact, description) values (%s, %s, %s, %s)",
+                           (invoice, name, contact, description))
             connection.commit()
             treeview_data()
-            messagebox.showinfo("Success", f"Invoice {invoice} was added")
+            messagebox.showinfo("Success", f"New invoice was added to the database")
         except Exception as error:
             messagebox.showerror("Error", str(error))
         finally:
@@ -120,12 +124,65 @@ def update_supplier_field(invoice, name, contact, description):
             connection.close()
 
 
+def delete_supplier_field(invoice):
+    selected = supplier_tree_view.selection()
+    if not selected:
+        messagebox.showerror("Warning", "Please select a supplier")
+    else:
+        connection, cursor = connect_database()
+        if not connection or not cursor:
+            return
+        try:
+            answer = messagebox.askyesno("Warning", "Do you really want to delete this invoice?")
+            if answer:
+                cursor.execute("""
+                DELETE FROM supplier_data where invoice = %s;
+                """, (invoice,))
+                connection.commit()
+                treeview_data()
+
+                messagebox.showinfo("Success", f"Invoice {invoice} was deleted")
+        except Exception as error:
+            messagebox.showerror("Error", str(error))
+        finally:
+            cursor.close()
+            connection.close()
+
+
+def search_supplier(invoice):
+    if invoice == '':
+        messagebox.showerror("Error", "Please enter an invoice value")
+    else:
+        connection, cursor = connect_database()
+        if not connection or not cursor:
+            return
+        try:
+            cursor.execute("SELECT * FROM supplier_data where invoice = %s", (invoice,))
+            record = cursor.fetchone()
+            if not record:
+                messagebox.showerror("Searching Error", "Invoice does not exist")
+                return
+            supplier_tree_view.delete(*supplier_tree_view.get_children())
+            supplier_tree_view.insert("", "end", values=record)
+
+        except Exception as error:
+            messagebox.showerror("Error", str(error))
+        finally:
+            cursor.close()
+            connection.close()
+
+
+def show_all_supplier(search_invoice_entry):
+    treeview_data()
+    search_invoice_entry.delete(0, "end")
+
+
 def treeview_data():
     connection, cursor = connect_database()
     if not cursor or not connection:
         return
     try:
-        cursor.execute("SELECT * FROM supplier_data")
+        cursor.execute("SELECT * FROM supplier_data ORDER BY invoice")
         supplier_records = cursor.fetchall()
 
         supplier_tree_view.delete(*supplier_tree_view.get_children())
@@ -167,11 +224,13 @@ def supplier_form(window):
     left_frame.place(x=15, y=75)
 
     # invoice number entry field
+
     invoice_label = tk.Label(left_frame, text="Invoice No.", font=("Times New Roman", 16, "bold"),
                              bg=COLORS["background"], fg=COLORS["text"])
     invoice_label.grid(row=0, column=0, padx=5, pady=13, sticky="w")
 
-    invoice_entry = tk.Entry(left_frame, width=25, font=("Times New Roman", 12), bg="lightyellow", fg="black")
+    invoice_entry = tk.Entry(left_frame, width=25, font=("Times New Roman", 12),
+                             bg="lightyellow", fg="black")
     invoice_entry.grid(row=0, column=1, padx=5, pady=13)
 
     # Supplier name entry field
@@ -209,7 +268,8 @@ def supplier_form(window):
     add_button = tk.Button(button_frame, text="Add", font=("Times New Roman", 14, "bold"), cursor="hand2",
                            fg=COLORS["text"], bg=COLORS["background"], width=7,
                            command=lambda: add_supplier(invoice_entry.get(), supplier_name_entry.get(),
-                                                        supplier_contact_entry.get(), description_text.get(1.0, 'end')))
+                                                        supplier_contact_entry.get(),
+                                                        description_text.get(1.0, 'end-1c')))
 
     add_button.grid(row=0, column=0, padx=10)
 
@@ -224,7 +284,8 @@ def supplier_form(window):
 
     # Delete button for supplier
     delete_button = tk.Button(button_frame, text="Delete", font=("Times New Roman", 14, "bold"), cursor="hand2",
-                              fg=COLORS["text"], bg=COLORS["background"], width=7)
+                              fg=COLORS["text"], bg=COLORS["background"], width=7,
+                              command=lambda: delete_supplier_field(invoice_entry.get()))
 
     delete_button.grid(row=0, column=2, padx=10)
 
@@ -252,13 +313,15 @@ def supplier_form(window):
 
     # Search button
     search_button = tk.Button(search_frame, text="Search", font=("Times New Roman", 14, "bold"), cursor="hand2",
-                              fg=COLORS["text"], bg=COLORS["background"], width=7)
+                              fg=COLORS["text"], bg=COLORS["background"], width=7,
+                              command=lambda: search_supplier(search_invoice_entry.get()))
 
     search_button.grid(row=0, column=2, padx=10)
 
     # Show all button
     show_all_button = tk.Button(search_frame, text="Show All", font=("Times New Roman", 14, "bold"), cursor="hand2",
-                                fg=COLORS["text"], bg=COLORS["background"], width=7)
+                                fg=COLORS["text"], bg=COLORS["background"], width=7,
+                                command=lambda: show_all_supplier(search_invoice_entry))
 
     show_all_button.grid(row=0, column=3, padx=10)
     # Define columns with estimated widths

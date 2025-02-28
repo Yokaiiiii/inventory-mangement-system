@@ -32,21 +32,23 @@ def create_database_table():
     # print("Using database inventory_system")
     cursor.execute("""
                 CREATE TABLE IF NOT EXISTS employee_data (
-                empid INT PRIMARY KEY,
-                name VARCHAR(100),
-                email VARCHAR(100),
-                gender VARCHAR(50),
-                dob VARCHAR(50),
-                contact VARCHAR(30),
-                employment_type VARCHAR(50),
-                education VARCHAR(50),
-                work_shift VARCHAR(50),
-                address VARCHAR(150),
-                doj VARCHAR(50),
-                salary VARCHAR(30),
-                usertype VARCHAR(100),
-                password VARCHAR(50)
-                )
+                    empid INT  PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    email VARCHAR(100) UNIQUE NOT NULL CHECK (email LIKE '%_@_%._%'),
+                    gender ENUM('Male', 'Female') NOT NULL,
+                    dob DATE NOT NULL,
+                    contact VARCHAR(15) NOT NULL CHECK (LENGTH(contact) BETWEEN 10 AND 15),
+                    employment_type ENUM('Full-Time', 'Part-Time', 'Internship', 'Contract') NOT NULL,
+                    education ENUM('High School', 'Diploma', 'Bachelor', 'Master', 'PhD', 'Other') NOT NULL,
+                    work_shift ENUM('Day', 'Morning', 'Afternoon', 'Evening', 'Night') NOT NULL,
+                    address VARCHAR(255) NOT NULL,
+                    doj DATE NOT NULL,
+                    salary DECIMAL(10,2) NOT NULL CHECK (salary >= 0),
+                    usertype ENUM('Admin', 'Employee', 'Manager', 'HR', 'Other') NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Track record creation time
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP-- Auto-update timestamp
+                    );
                 """)
     # print("Table created successfully")
 
@@ -71,36 +73,55 @@ def treeview_data():
 
 
 def add_employee_command(empid, name, email, gender, dob, contact, employment_type, education, work_shift, address, doj,
-                         salary, usertype,
-                         password):
-    # print(empid, name, email, gender, dob, contact, employment_type, education, work_shift, address, doj, salary,
-    # usertype, password)
-
-    if empid == '' or name == '' or email == '' or gender == 'Select Gender' or contact == '' or employment_type == '' or education == 'Select Education' or work_shift == 'Select Work Shift' or address == '' or salary == '' or usertype == 'Select User Type' or password == '':
+                         salary, usertype, password):
+    # Ensure that no field is left empty
+    if name == '' or email == '' or gender == 'Select Gender' or contact == '' or employment_type == '' or education == 'Select Education' or work_shift == 'Select Work Shift' or address == '' or salary == '' or usertype == 'Select User Type' or password == '':
         messagebox.showerror(title="Error", message="Please fill all fields")
-    else:
-        connection, cursor = connect_database()
-        if not connection and not cursor:
-            return
-        try:
-            cursor.execute("SELECT empid FROM employee_data WHERE empid = %s", (empid,))
-            if cursor.fetchone():
-                messagebox.showerror(title="Error", message="Employee ID already exists")
-                return
-            cursor.execute("""
-            INSERT INTO employee_data VALUES (%s, %s,%s, %s,%s, %s,%s, %s,%s, %s,%s, %s,%s, %s )
-            """, (empid, name, email, gender, dob, contact, employment_type, education, work_shift, address, doj,
-                  salary, usertype,
-                  password))
+        return
 
-            connection.commit()
-            treeview_data()
-            messagebox.showinfo(title="Success", message="Employee added successfully")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error: {e}")
-        finally:
-            connection.close()
-            cursor.close()
+    # Connect to the database
+    connection, cursor = connect_database()
+    if not connection or not cursor:
+        return
+
+    try:
+        # Check if empid already exists
+        cursor.execute("SELECT empid FROM employee_data WHERE empid = %s", (empid,))
+        if cursor.fetchone():
+            messagebox.showerror(title="Error", message="Employee ID already exists")
+            return
+
+        # # dob and doj are already in 'DD/MM/YYYY' format, so no need to convert
+        # # DateEntry should give us a datetime object which can be inserted directly
+        # if isinstance(dob, datetime):
+        #     dob = dob.date()  # Get date part if it's a datetime object
+        # if isinstance(doj, datetime):
+        #     doj = doj.date()  # Get date part if it's a datetime object
+
+        # Insert the data into the database
+        cursor.execute("""
+        INSERT INTO employee_data (empid, name, email, gender, dob, contact, employment_type, education, work_shift, address, doj, salary, usertype, password)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (empid, name, email, gender, dob, contact, employment_type, education, work_shift, address, doj, salary, usertype,
+              password))
+
+        # Commit the transaction
+        connection.commit()
+
+        # Optional: Update Treeview or UI here
+        treeview_data()
+
+        # Show success message
+        messagebox.showinfo(title="Success", message="Employee added successfully")
+
+    except Exception as e:
+        # Show error message
+        messagebox.showerror("Error", f"Error: {e}")
+
+    finally:
+        # Close the database connection
+        connection.close()
+        cursor.close()
 
 
 def clear_field_command(empid_entry,
@@ -350,9 +371,13 @@ def employee_form(window):
         "employment_type": ("Employment Type", 140),
         "education": ("Education", 120),
         "work_shift": ("Work Shift", 100),
+        "address": ("Address", 300),
         "doj": ("Date Of Join", 120),
         "salary": ("Salary", 100),
         "usertype": ("User Type", 100),
+        "password": ("Password", 100),
+        "created_at": ("Created At", 100),
+        "updated_at": ("Updated At", 100),
     }
 
     # Create the Treeview
@@ -384,17 +409,17 @@ def employee_form(window):
     detail_frame.place(x=5, y=275, height=285, width=1010)
 
     # Predefined options for dropdown fields
-    gender_options = ["Male", "Female", "Other"]
-    employment_type_options = ["Full-Time", "Part-Time", "Contract"]
-    education_options = ["High School", "Bachelor's", "Master's", "PhD", "Other"]
-    work_shift_options = ["Morning", "Evening", "Night"]
-    usertype_options = ["Admin", "Employee", "Manager"]
+    gender_options = ["Male", "Female"]
+    employment_type_options = ['Full-Time', 'Part-Time', 'Internship', 'Contract']
+    education_options = ['High School', 'Diploma', 'Bachelor', 'Master', 'PhD', 'Other']
+    work_shift_options = ['Day', 'Morning', 'Afternoon', 'Evening', 'Night']
+    usertype_options = ['Admin', 'Employee', 'Manager', 'HR', 'Other']
 
     # Hardcoded entries for each field (static)
     empid_label = tk.Label(detail_frame, text="EmpID", font=("Times New Roman", 12, "bold"), bg=COLORS['background'],
                            fg=COLORS['text'])
     empid_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
-    empid_entry = tk.Entry(detail_frame, width=20, bg="lightyellow", fg="black")
+    empid_entry = tk.Entry(detail_frame, width=20, bg="lightyellow", fg="black" )
     empid_entry.grid(row=0, column=1, padx=10, pady=5)
 
     name_label = tk.Label(detail_frame, text="Name", font=("Times New Roman", 12, "bold"), bg=COLORS['background'],
@@ -422,7 +447,7 @@ def employee_form(window):
                          bg=COLORS['background'], fg=COLORS['text'])
     dob_label.grid(row=1, column=2, padx=10, pady=5, sticky="w")
     dob_entry = DateEntry(detail_frame, width=19, height=3, font=("Times New Roman", 12), bg="lightyellow", fg="black",
-                          state="readonly", date_pattern="dd/mm/yyyy")
+                          state="readonly", date_pattern='YYYY-MM-DD')
     dob_entry.grid(row=1, column=3, padx=10, pady=5)
 
     # Contact field
@@ -468,7 +493,7 @@ def employee_form(window):
                          bg=COLORS['background'], fg=COLORS['text'])
     doj_label.grid(row=3, column=2, padx=10, pady=5, sticky="w")
     doj_entry = DateEntry(detail_frame, width=19, height=3, font=("Times New Roman", 12), bg="lightyellow", fg="black",
-                          state="readonly", date_pattern="dd/mm/yyyy")
+                          state="readonly", date_pattern='YYYY-MM-DD')
     doj_entry.grid(row=3, column=3, padx=10, pady=5)
 
     salary_label = tk.Label(detail_frame, text="Salary", font=("Times New Roman", 12, "bold"), bg=COLORS['background'],
@@ -496,25 +521,26 @@ def employee_form(window):
     employee_button_frame.place(x=150, y=220)
 
     add_employee_button = tk.Button(employee_button_frame, text="Add Employee", bd=0, bg=COLORS["background"],
-                                    fg=COLORS["text"], command=lambda: add_employee_command(empid_entry.get(),
-                                                                                            name_entry.get(),
-                                                                                            email_entry.get(),
-                                                                                            gender_combobox.get(),
-                                                                                            dob_entry.get(),
-                                                                                            contact_entry.get(),
-                                                                                            employment_type_combobox.get(),
-                                                                                            education_combobox.get(),
-                                                                                            work_shift_combobox.get(),
-                                                                                            address_text.get("1.0",
-                                                                                                             "end-1c"),
-                                                                                            doj_entry.get(),
-                                                                                            salary_entry.get(),
-                                                                                            usertype_combobox.get(),
-                                                                                            password_entry.get(),
+                                    fg=COLORS["text"], command=lambda: add_employee_command(
+            empid_entry.get(),
+            name_entry.get(),
+            email_entry.get(),
+            gender_combobox.get(),
+            dob_entry.get(),
+            contact_entry.get(),
+            employment_type_combobox.get(),
+            education_combobox.get(),
+            work_shift_combobox.get(),
+            address_text.get("1.0",
+                             "end-1c"),
+            doj_entry.get(),
+            salary_entry.get(),
+            usertype_combobox.get(),
+            password_entry.get(),
 
-                                                                                            # For multi-line text, use get("1.0", "end-1c")password_entry.get()
+            # For multi-line text, use get("1.0", "end-1c")password_entry.get()
 
-                                                                                            ))
+        ))
     add_employee_button.grid(row=0, column=0, padx=20)
 
     update_employee_button = tk.Button(employee_button_frame, text="Update Employee", bd=0, bg=COLORS["background"],
