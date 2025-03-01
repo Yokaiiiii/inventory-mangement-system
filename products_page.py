@@ -3,6 +3,7 @@ import tkinter.ttk as ttk
 from tkinter import messagebox
 
 from employee import connect_database
+from supplier_page import clear_supplier_field
 
 COLORS = {
     "background": "#181C14",  # Dark background
@@ -23,14 +24,50 @@ def create_table():
             category VARCHAR(100) NOT NULL,
             supplier VARCHAR(100) NOT NULL,
             name VARCHAR(150) NOT NULL UNIQUE, -- Ensures product names are unique
-            price DECIMAL(10,2) NOT NULL CHECK (price >= 0), -- Prevents negative pricing
-            quantity INT NOT NULL CHECK (quantity >= 0), -- Prevents negative stock values
+            price VARCHAR(50) NOT NULL CHECK (price >= 0), -- Prevents negative pricing
+            quantity VARCHAR(20) NOT NULL CHECK (quantity >= 0), -- Prevents negative stock values
             status ENUM('Active', 'Inactive') NOT NULL DEFAULT 'Active', -- Restricts status values
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Automatically tracks creation time
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- Auto-updates on modification
             );
         """)
         connection.commit()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def fetch_category_option():
+    category_option = []
+    connection, cursor = connect_database()
+    if not cursor or not connection:
+        return
+    try:
+        cursor.execute("SELECT name from category_data ")
+        names = cursor.fetchall()
+        for name in names:
+            category_option.append(name[0])
+        return category_option
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def fetch_supplier_option():
+    supplier_option = []
+    connection, cursor = connect_database()
+    if not cursor or not connection:
+        return
+    try:
+        cursor.execute("SELECT name from supplier_data ")
+        names = cursor.fetchall()
+        for name in names:
+            supplier_option.append(name[0])
+        return supplier_option
     except Exception as e:
         messagebox.showerror("Error", str(e))
     finally:
@@ -53,6 +90,101 @@ def add_product(category, supplier, name, price, quantity, status):
 
             treeview_data()
             messagebox.showinfo("Success", f"Product added to database")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+        finally:
+            cursor.close()
+            connection.close()
+
+
+def clear_product_field(category_combobox, supplier_combobox, name_entry, price_entry, quantity_entry, status_combobox,
+                        check=False):
+    category_combobox.set("Empty")
+    supplier_combobox.set("Empty")
+    name_entry.delete(0, "end")
+    price_entry.delete(0, "end")
+    quantity_entry.delete(0, "end")
+    status_combobox.set("Select Status")
+    if check:
+        product_tree_view.selection_remove(product_tree_view.selection())
+
+
+def select_product(event, category_combobox, supplier_combobox, name_entry, price_entry, quantity_entry,
+                   status_combobox):
+    index = product_tree_view.selection()
+    content = product_tree_view.item(index[0])
+    content = content["values"]
+
+    clear_product_field(category_combobox, supplier_combobox, name_entry, price_entry, quantity_entry, status_combobox)
+
+    category_combobox.set(content[1])
+    supplier_combobox.set(content[2])
+    name_entry.insert(0, content[3])
+    price_entry.insert(0, content[4])
+    quantity_entry.insert(0, content[5])
+    status_combobox.set(content[6])
+
+
+def update_product(category, supplier, name, price, quantity, status):
+    selected = product_tree_view.selection()
+    if not selected:
+        messagebox.showerror("Error", "Please select a product")
+    else:
+        connection, cursor = connect_database()
+        if not cursor or not connection:
+            return
+        try:
+            index = product_tree_view.selection()
+            content = product_tree_view.item(index[0])
+            content = content["values"]
+            product_id = content[0]
+            cursor.execute("SELECT * FROM product_data WHERE productid = %s", (product_id,))
+            current_data = cursor.fetchone()
+            current_data = current_data[1:7]
+
+            new_data = (category, supplier, name, price, quantity, status)
+            print(current_data, new_data)
+            if current_data == new_data:
+                messagebox.showerror("Error", "No changes made before update")
+                return
+
+            cursor.execute("""
+            UPDATE product_data SET category = %s, supplier = %s, name = %s, price = %s, quantity = %s, status = %s WHERE productid = %s
+            """, (category, supplier, name, price, quantity, status, product_id))
+            connection.commit()
+            treeview_data()
+            messagebox.showinfo("Success", f"Product updated to database")
+
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+        finally:
+            cursor.close()
+            connection.close()
+
+
+def delete_product():
+    selected = product_tree_view.selection()
+    if not selected:
+        messagebox.showerror("Error", "Please select a product")
+    else:
+        connection, cursor = connect_database()
+        if not cursor or not connection:
+            return
+        try:
+            index = product_tree_view.selection()
+            content = product_tree_view.item(index[0])
+            content = content["values"]
+            product_id = content[0]
+            answer = messagebox.askyesno("Warning", "Are you sure you wanna delete the product?")
+
+            if answer:
+                cursor.execute("""
+                DELETE FROM product_data WHERE productid = %s
+                """, (product_id,))
+                connection.commit()
+                treeview_data()
+                messagebox.showinfo("Success", f"Product deleted successfully")
+
         except Exception as e:
             messagebox.showerror("Error", str(e))
         finally:
@@ -122,18 +254,23 @@ def products_form(window):
                               bg=COLORS["background"], fg=COLORS["text"])
     category_label.grid(row=1, column=0, padx=5, pady=13, sticky="w")
 
-    category_combobox = ttk.Combobox(left_frame, width=23, font=("Times New Roman", 12), state="readonly", values= ("Home", "Office"))
+    category_option = fetch_category_option()
+
+    category_combobox = ttk.Combobox(left_frame, width=23, font=("Times New Roman", 12), state="readonly",
+                                     values=category_option)
     category_combobox.set("Empty")
     category_combobox.grid(row=1, column=1, padx=5, pady=13)
 
-    product_label = tk.Label(left_frame, text="product", font=("Times New Roman", 16, "bold"),
-                             bg=COLORS["background"], fg=COLORS["text"])
-    product_label.grid(row=2, column=0, padx=5, pady=13, sticky="w")
+    supplier_label = tk.Label(left_frame, text="Supplier", font=("Times New Roman", 16, "bold"),
+                              bg=COLORS["background"], fg=COLORS["text"])
+    supplier_label.grid(row=2, column=0, padx=5, pady=13, sticky="w")
 
-    product_combobox = ttk.Combobox(left_frame, width=23, font=("Times New Roman", 12), state="readonly",
-                                    values=("Goods", "happy"))
-    product_combobox.set("Empty")
-    product_combobox.grid(row=2, column=1, padx=5, pady=13)
+    supplier_option = fetch_supplier_option()
+
+    supplier_combobox = ttk.Combobox(left_frame, width=23, font=("Times New Roman", 12), state="readonly",
+                                     values=supplier_option)
+    supplier_combobox.set("Empty")
+    supplier_combobox.grid(row=2, column=1, padx=5, pady=13)
 
     name_label = tk.Label(left_frame, text="Name", font=("Times New Roman", 16, "bold"),
                           bg=COLORS["background"], fg=COLORS["text"])
@@ -173,23 +310,32 @@ def products_form(window):
 
     add_button = tk.Button(button_frame, text="Add", font=("Times New Roman", 14, "bold"), cursor="hand2",
                            fg=COLORS["text"], bg=COLORS["background"], width=5,
-                           command=lambda: add_product(category_combobox.get(), status_combobox.get(), name_entry.get(),
+                           command=lambda: add_product(category_combobox.get(), supplier_combobox.get(),
+                                                       name_entry.get(),
                                                        price_entry.get(), quantity_entry.get(), status_combobox.get()))
 
     add_button.grid(row=0, column=0, padx=10)
 
     update_button = tk.Button(button_frame, text="Update", font=("Times New Roman", 14, "bold"), cursor="hand2",
-                              fg=COLORS["text"], bg=COLORS["background"], width=5)
+                              fg=COLORS["text"], bg=COLORS["background"], width=5,
+                              command=lambda: update_product(category_combobox.get(), supplier_combobox.get(),
+                                                             name_entry.get(),
+                                                             price_entry.get(), quantity_entry.get(),
+                                                             status_combobox.get()))
 
     update_button.grid(row=0, column=1, padx=10)
 
     delete_button = tk.Button(button_frame, text="Delete", font=("Times New Roman", 14, "bold"), cursor="hand2",
-                              fg=COLORS["text"], bg=COLORS["background"], width=5)
+                              fg=COLORS["text"], bg=COLORS["background"], width=5, command=delete_product)
 
     delete_button.grid(row=0, column=2, padx=10)
 
     clear_button = tk.Button(button_frame, text="Clear", font=("Times New Roman", 14, "bold"), cursor="hand2",
-                             fg=COLORS["text"], bg=COLORS["background"], width=5)
+                             fg=COLORS["text"], bg=COLORS["background"], width=5,
+                             command=lambda: clear_product_field(category_combobox, supplier_combobox,
+                                                                 name_entry,
+                                                                 price_entry, quantity_entry,
+                                                                 status_combobox, True))
 
     clear_button.grid(row=0, column=3, padx=10)
 
@@ -197,10 +343,10 @@ def products_form(window):
                                  font=("Times New Roman", 14), fg=COLORS["text"])
     search_frame.place(x=430, y=40)
 
-    search_product_combobox = ttk.Combobox(search_frame, width=18, font=("Times New Roman", 12), state="readonly",
-                                           values=("Category", "product", "Name", "Status"))
-    search_product_combobox.set("Select Search Option")
-    search_product_combobox.grid(row=0, column=0, padx=5, pady=13)
+    search_supplier_combobox = ttk.Combobox(search_frame, width=18, font=("Times New Roman", 12), state="readonly",
+                                            values=("Category", "product", "Name", "Status"))
+    search_supplier_combobox.set("Select Search Option")
+    search_supplier_combobox.grid(row=0, column=0, padx=5, pady=13)
 
     search_product_entry = tk.Entry(search_frame, width=18, font=("Times New Roman", 12),
                                     bg="lightyellow", fg="black")
@@ -230,6 +376,8 @@ def products_form(window):
         "price": ("Price", 80),
         "quantity": ("Quantity", 80),
         "status": ("Status", 100),
+        "created_at": ("Created At", 100),
+        "updated_at": ("Updated At", 100),
     }
 
     # Create the Treeview
@@ -255,5 +403,11 @@ def products_form(window):
         product_tree_view.heading(key, text=label)  # Set heading label
         product_tree_view.column(key, width=width, anchor="center")  # Optimize width & alignment
 
+    product_tree_view.bind("<ButtonRelease-1>",
+                           lambda event: select_product(event, category_combobox, supplier_combobox, name_entry,
+                                                        price_entry, quantity_entry, status_combobox))
+
     treeview_data()
     create_table()
+
+    return product_frame

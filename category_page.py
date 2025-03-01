@@ -235,3 +235,4 @@ def category_form(window):
                                                                 category_description_entry))
 
     create_table()
+    return category_frame

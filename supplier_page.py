@@ -99,7 +99,7 @@ def update_supplier_field(invoice, name, contact, description):
         try:
             cursor.execute("SELECT * FROM supplier_data where invoice = %s", (invoice,))
             current_data = cursor.fetchone()
-            current_data = current_data[1:]  # since the first value is the invoice and invoice will never be changed
+            current_data = current_data[1:4]  # since the first value is the invoice and invoice will never be changed
 
             description = description.strip()
             new_data = (name, contact, description)
@@ -361,3 +361,4 @@ def supplier_form(window):
 
     create_table()
     treeview_data()
+    return supplier_frame

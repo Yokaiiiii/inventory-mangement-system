@@ -5,6 +5,41 @@ from sales_page import sales_form
 from supplier_page import supplier_form
 
 import tkinter as tk
+import time
+
+def update_time():
+
+    connection, cursor = connect_database()
+    if not cursor or not connection:
+        return
+    cursor.execute("SELECT count(empid) FROM employee_data")
+    empid_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(productid) FROM product_data")
+    product_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(categoryid) FROM category_data")
+    category_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(invoice) FROM supplier_data")
+    supplier_count = cursor.fetchone()[0]
+
+    print(f"empid_count: {empid_count}, product count: {product_count}, category count: {category_count}, supplier count: {supplier_count}")
+
+    current_time = time.strftime("%I:%M:%S %p")
+    current_date = time.strftime("%d/%m/%Y")
+    subtitle_label.config(text= f"Welcome Admin!!\t\t Date: {current_date}\t\t Time: {current_time}")
+    subtitle_label.after(1000, update_time)
+
+current_frame = None
+
+
+def show_form(form_function):
+    global current_frame
+    if current_frame:
+        current_frame.place_forget()
+    current_frame = form_function(window)
+
 
 # Define color scheme for consistent theme
 COLORS = {
@@ -63,11 +98,11 @@ menu_label.pack(fill="x", pady=5)
 
 # Sidebar buttons
 menu_buttons = [
-    ("Employees", "./images/employee.png", lambda: employee_form(window)),
-    ("Supplier", "./images/supplier.png", lambda: supplier_form(window)),
-    ("Category", "./images/category.png", lambda: category_form(window)),
-    ("Products", "./images/product.png", lambda: products_form(window)),
-    ("Sales", "./images/sales.png", lambda: sales_form(window)),
+    ("Employees", "./images/employee.png", lambda: show_form(employee_form)),
+    ("Supplier", "./images/supplier.png", lambda: show_form(supplier_form)),
+    ("Category", "./images/category.png", lambda: show_form(category_form)),
+    ("Products", "./images/product.png", lambda: show_form(products_form)),
+    ("Sales", "./images/sales.png", lambda: show_form(sales_form)),
     ("Exit", "./images/exit.png", None)
 ]
 
@@ -111,6 +146,8 @@ create_stat_frame(615, 145, "./images/total_sup.png", "Total Suppliers")
 create_stat_frame(930, 145, "./images/total_cat.png", "Total Categories")
 create_stat_frame(450, 370, "./images/total_prod.png", "Total Products")
 create_stat_frame(800, 370, "./images/total_sales.png", "Total Sales")
+
+update_time()
 
 # Run the Tkinter main event loop
 window.mainloop()

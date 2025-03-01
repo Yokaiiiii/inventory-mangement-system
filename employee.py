@@ -598,3 +598,4 @@ def employee_form(window):
                                                                            password_entry))
 
     create_database_table()
+    return employee_frame
