@@ -12,6 +12,76 @@ COLORS = {
 }
 
 
+def create_table():
+    connection, cursor = connect_database()
+    if not cursor or not connection:
+        return
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS product_data (
+            productid INT PRIMARY KEY AUTO_INCREMENT,
+            category VARCHAR(100) NOT NULL,
+            supplier VARCHAR(100) NOT NULL,
+            name VARCHAR(150) NOT NULL UNIQUE, -- Ensures product names are unique
+            price DECIMAL(10,2) NOT NULL CHECK (price >= 0), -- Prevents negative pricing
+            quantity INT NOT NULL CHECK (quantity >= 0), -- Prevents negative stock values
+            status ENUM('Active', 'Inactive') NOT NULL DEFAULT 'Active', -- Restricts status values
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Automatically tracks creation time
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- Auto-updates on modification
+            );
+        """)
+        connection.commit()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def add_product(category, supplier, name, price, quantity, status):
+    if category == 'Empty' or supplier == 'Empty' or name == '' or price == '' or quantity == '' or status == 'Select Status':
+        messagebox.showerror("Error", "Please fill all fields")
+    else:
+        connection, cursor = connect_database()
+        if not cursor or not connection:
+            return
+        try:
+            cursor.execute("""
+            INSERT INTO product_data ( category, supplier, name, price, quantity, status) VALUES (%s, %s, %s, %s, %s, %s)
+            """, (category, supplier, name, price, quantity, status))
+            connection.commit()
+
+            treeview_data()
+            messagebox.showinfo("Success", f"Product added to database")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+        finally:
+            cursor.close()
+            connection.close()
+
+
+def treeview_data():
+    connection, cursor = connect_database()
+    if not cursor or not connection:
+        return
+    try:
+        cursor.execute("SELECT * FROM product_data ORDER BY productid")
+        product_records = cursor.fetchall()
+
+        product_tree_view.delete(*product_tree_view.get_children())
+
+        for record in product_records:
+            product_tree_view.insert("", "end", values=record)
+    except Exception as error:
+        messagebox.showerror("Error", str(error))
+    finally:
+        cursor.close()
+        connection.close()
+
+
+# def select_product_field(event,  productid_entry,  )
+
+
 def products_form(window):
     global back_button_icon, product_tree_view  # if we do not make this global, we do not get the back icon in the header
     # Create product management frame
@@ -52,17 +122,18 @@ def products_form(window):
                               bg=COLORS["background"], fg=COLORS["text"])
     category_label.grid(row=1, column=0, padx=5, pady=13, sticky="w")
 
-    category_combobox = ttk.Combobox(left_frame, width=23, font=("Times New Roman", 12), state="readonly")
+    category_combobox = ttk.Combobox(left_frame, width=23, font=("Times New Roman", 12), state="readonly", values= ("Home", "Office"))
     category_combobox.set("Empty")
     category_combobox.grid(row=1, column=1, padx=5, pady=13)
 
-    supplier_label = tk.Label(left_frame, text="Supplier", font=("Times New Roman", 16, "bold"),
-                              bg=COLORS["background"], fg=COLORS["text"])
-    supplier_label.grid(row=2, column=0, padx=5, pady=13, sticky="w")
+    product_label = tk.Label(left_frame, text="product", font=("Times New Roman", 16, "bold"),
+                             bg=COLORS["background"], fg=COLORS["text"])
+    product_label.grid(row=2, column=0, padx=5, pady=13, sticky="w")
 
-    supplier_combobox = ttk.Combobox(left_frame, width=23, font=("Times New Roman", 12), state="readonly")
-    supplier_combobox.set("Empty")
-    supplier_combobox.grid(row=2, column=1, padx=5, pady=13)
+    product_combobox = ttk.Combobox(left_frame, width=23, font=("Times New Roman", 12), state="readonly",
+                                    values=("Goods", "happy"))
+    product_combobox.set("Empty")
+    product_combobox.grid(row=2, column=1, padx=5, pady=13)
 
     name_label = tk.Label(left_frame, text="Name", font=("Times New Roman", 16, "bold"),
                           bg=COLORS["background"], fg=COLORS["text"])
@@ -101,7 +172,9 @@ def products_form(window):
     button_frame.grid(row=7, column=0, columnspan=2, padx=5, pady=13)
 
     add_button = tk.Button(button_frame, text="Add", font=("Times New Roman", 14, "bold"), cursor="hand2",
-                           fg=COLORS["text"], bg=COLORS["background"], width=5)
+                           fg=COLORS["text"], bg=COLORS["background"], width=5,
+                           command=lambda: add_product(category_combobox.get(), status_combobox.get(), name_entry.get(),
+                                                       price_entry.get(), quantity_entry.get(), status_combobox.get()))
 
     add_button.grid(row=0, column=0, padx=10)
 
@@ -125,7 +198,7 @@ def products_form(window):
     search_frame.place(x=430, y=40)
 
     search_product_combobox = ttk.Combobox(search_frame, width=18, font=("Times New Roman", 12), state="readonly",
-                                           values=("Category", "Supplier", "Name", "Status"))
+                                           values=("Category", "product", "Name", "Status"))
     search_product_combobox.set("Select Search Option")
     search_product_combobox.grid(row=0, column=0, padx=5, pady=13)
 
@@ -143,3 +216,44 @@ def products_form(window):
                                 fg=COLORS["text"], bg=COLORS["background"], width=7)
 
     show_all_button.grid(row=0, column=3, padx=10)
+
+    treeview_frame = tk.Frame(product_frame, bg=COLORS["text"], height=400, width=563)
+    treeview_frame.place(x=430, y=145)
+    treeview_frame.propagate(False)  # Prevents resizing beyond defined width/height
+
+    # Define columns with estimated widths
+    product_tree_view_columns = {
+        "productid": ("Product ID", 80),
+        "category": ("Category", 100),
+        "supplier": ("Supplier", 150),
+        "name": ("Name", 100),
+        "price": ("Price", 80),
+        "quantity": ("Quantity", 80),
+        "status": ("Status", 100),
+    }
+
+    # Create the Treeview
+    product_tree_view = ttk.Treeview(
+        treeview_frame, columns=list(product_tree_view_columns.keys()), show="headings"
+    )
+
+    # Create Vertical Scrollbar
+    tree_y_scroll = ttk.Scrollbar(treeview_frame, orient="vertical", command=product_tree_view.yview)
+    product_tree_view.configure(yscrollcommand=tree_y_scroll.set)
+    tree_y_scroll.pack(side="right", fill='y')  # Attach to right side
+
+    # Create Horizontal Scrollbar
+    tree_x_scroll = ttk.Scrollbar(treeview_frame, orient="horizontal", command=product_tree_view.xview)
+    product_tree_view.configure(xscrollcommand=tree_x_scroll.set)
+    tree_x_scroll.pack(side="bottom", fill="x")  # Attach to bottom
+
+    # Pack the Treeview itself
+    product_tree_view.pack(fill="both", expand=True)
+
+    # Set column properties
+    for key, (label, width) in product_tree_view_columns.items():
+        product_tree_view.heading(key, text=label)  # Set heading label
+        product_tree_view.column(key, width=width, anchor="center")  # Optimize width & alignment
+
+    treeview_data()
+    create_table()
