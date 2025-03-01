@@ -11,7 +11,7 @@ def connect_database():
     try:
         connection = pymysql.connect(host="localhost", user="learningYokai", password="Le@rning123")
         cursor = connection.cursor()
-    except:
+    except pymysql.err.OperationalError:
         messagebox.showerror("Database Error", "Database Connection Error")
         return None, None
     cursor.execute("""
@@ -58,7 +58,7 @@ def treeview_data():
     if not connection and not cursor:
         return
     try:
-        cursor.execute("SELECT * FROM employee_data");
+        cursor.execute("SELECT * FROM employee_data")
         employee_records = cursor.fetchall()
         # since we are inserting (appending) to the tree view, so now we have to delete the previously added data and rewrite with the new data (instead of appending, ew are deleting pre data and again adding everything, yes it does increase overhead but we don't care about that right now)
         employee_tree_view.delete(
@@ -171,7 +171,7 @@ def select_data(event, empid_entry,
                 usertype_combobox,
                 password_entry):
     index = employee_tree_view.selection()
-    content = employee_tree_view.item(index)
+    content = employee_tree_view.item(index[0])
     content = content["values"]
     clear_field_command(empid_entry,
                         name_entry,
