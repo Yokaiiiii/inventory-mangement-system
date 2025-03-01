@@ -8,10 +8,11 @@ import tkinter as tk
 import time
 
 def update_time():
-
     connection, cursor = connect_database()
     if not cursor or not connection:
         return
+
+    # Fetch counts from database
     cursor.execute("SELECT count(empid) FROM employee_data")
     empid_count = cursor.fetchone()[0]
 
@@ -24,15 +25,23 @@ def update_time():
     cursor.execute("SELECT COUNT(invoice) FROM supplier_data")
     supplier_count = cursor.fetchone()[0]
 
-    print(f"empid_count: {empid_count}, product count: {product_count}, category count: {category_count}, supplier count: {supplier_count}")
+    # print(f"Updated Stats - Employees: {empid_count}, Products: {product_count}, Categories: {category_count}, Suppliers: {supplier_count}")
 
-    current_time = time.strftime("%I:%M:%S %p")
+    # Update count labels dynamically
+    stats_labels["employees"].config(text=str(empid_count))
+    stats_labels["suppliers"].config(text=str(supplier_count))
+    stats_labels["categories"].config(text=str(category_count))
+    stats_labels["products"].config(text=str(product_count))
+
+    # Update Date & Time in subtitle
+    current_time = time.strftime("%I:%M %p")
     current_date = time.strftime("%d/%m/%Y")
-    subtitle_label.config(text= f"Welcome Admin!!\t\t Date: {current_date}\t\t Time: {current_time}")
-    subtitle_label.after(1000, update_time)
+    subtitle_label.config(text=f"Welcome Admin!!\t\t Date: {current_date}\t\t Time: {current_time}")
+
+    # Refresh stats every 5 seconds
+    window.after(5000, update_time)
 
 current_frame = None
-
 
 def show_form(form_function):
     global current_frame
@@ -40,13 +49,12 @@ def show_form(form_function):
         current_frame.place_forget()
     current_frame = form_function(window)
 
-
 # Define color scheme for consistent theme
 COLORS = {
-    "background": "#181C14",  # Dark background
-    "frame": "#3C3D37",  # Sidebar and frames
-    "highlight": "#697565",  # Subtitles, highlights
-    "text": "#ECDFCC"  # Light text color for contrast
+    "background": "#181C14",
+    "frame": "#3C3D37",
+    "highlight": "#697565",
+    "text": "#ECDFCC"
 }
 
 # Initialize main application window
@@ -116,7 +124,6 @@ for text, img_path, command in menu_buttons:
     button.image = icon  # Prevent garbage collection
     button.pack(pady=1, fill="x")
 
-
 # Dashboard Stats Section
 def create_stat_frame(x, y, icon_path, label_text):
     frame = tk.Frame(window, bg=COLORS["frame"])
@@ -139,14 +146,19 @@ def create_stat_frame(x, y, icon_path, label_text):
     )
     count_label.pack(pady=5)
 
+    return count_label  # Return count label for updates
 
-# Creating statistic frames
-create_stat_frame(300, 145, "./images/total_emp.png", "Total Employees")
-create_stat_frame(615, 145, "./images/total_sup.png", "Total Suppliers")
-create_stat_frame(930, 145, "./images/total_cat.png", "Total Categories")
-create_stat_frame(450, 370, "./images/total_prod.png", "Total Products")
-create_stat_frame(800, 370, "./images/total_sales.png", "Total Sales")
+# Dictionary to store count labels
+stats_labels = {}
 
+# Creating statistic frames & storing count labels
+stats_labels["employees"] = create_stat_frame(300, 145, "./images/total_emp.png", "Total Employees")
+stats_labels["suppliers"] = create_stat_frame(615, 145, "./images/total_sup.png", "Total Suppliers")
+stats_labels["categories"] = create_stat_frame(930, 145, "./images/total_cat.png", "Total Categories")
+stats_labels["products"] = create_stat_frame(450, 370, "./images/total_prod.png", "Total Products")
+stats_labels["sales"] = create_stat_frame(800, 370, "./images/total_sales.png", "Total Sales")
+
+# Start updating stats
 update_time()
 
 # Run the Tkinter main event loop
