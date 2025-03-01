@@ -21,7 +21,7 @@ def create_table():
         CREATE TABLE IF NOT EXISTS supplier_data (
             invoice INT PRIMARY KEY ,  -- Unique identifier, auto-incremented
             name VARCHAR(100) NOT NULL,  -- Name is required
-            contact VARCHAR(15) NOT NULL UNIQUE,  -- Contact must be unique
+            contact VARCHAR(15) NOT NULL UNIQUE CHECK (LENGTH(contact) BETWEEN 10 AND 15),  -- Contact must be unique
             description VARCHAR(500) DEFAULT 'No description provided',  -- Default value for description
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Track record creation time
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP-- Auto-update timestamp
