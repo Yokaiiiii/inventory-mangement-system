@@ -1,11 +1,12 @@
 from category_page import *
 from employee import employee_form
 from products_page import products_form
-from sales_page import sales_form
+from billing_page import billing_form
 from supplier_page import supplier_form
 
 import tkinter as tk
 import time
+
 
 def update_time():
     connection, cursor = connect_database()
@@ -25,6 +26,9 @@ def update_time():
     cursor.execute("SELECT COUNT(invoice) FROM supplier_data")
     supplier_count = cursor.fetchone()[0]
 
+    cursor.execute("SELECT count(bill_id) FROM billing_data")
+    sales_count = cursor.fetchone()[0]
+
     # print(f"Updated Stats - Employees: {empid_count}, Products: {product_count}, Categories: {category_count}, Suppliers: {supplier_count}")
 
     # Update count labels dynamically
@@ -32,6 +36,7 @@ def update_time():
     stats_labels["suppliers"].config(text=str(supplier_count))
     stats_labels["categories"].config(text=str(category_count))
     stats_labels["products"].config(text=str(product_count))
+    stats_labels["sales"].config(text=str(sales_count))
 
     # Update Date & Time in subtitle
     current_time = time.strftime("%I:%M %p")
@@ -41,13 +46,16 @@ def update_time():
     # Refresh stats every 5 seconds
     window.after(5000, update_time)
 
+
 current_frame = None
+
 
 def show_form(form_function):
     global current_frame
     if current_frame:
         current_frame.place_forget()
     current_frame = form_function(window)
+
 
 # Define color scheme for consistent theme
 COLORS = {
@@ -75,11 +83,11 @@ title_label = tk.Label(
 title_label.place(x=0, y=0, relwidth=1)
 
 # Logout button
-logout_button = tk.Button(
-    window, text="Logout", font=("Times New Roman", 20, "bold"),
-    bg=COLORS["background"], fg=COLORS["text"], borderwidth=0, relief="flat", padx=20, pady=10
-)
-logout_button.place(x=1100, y=10)
+# logout_button = tk.Button(
+#     window, text="Logout", font=("Times New Roman", 20, "bold"),
+#     bg=COLORS["background"], fg=COLORS["text"], borderwidth=0, relief="flat", padx=20, pady=10
+# )
+# logout_button.place(x=1100, y=10)
 
 # Subtitle label (Admin Welcome & Date/Time)
 subtitle_label = tk.Label(
@@ -110,7 +118,7 @@ menu_buttons = [
     ("Supplier", "./images/supplier.png", lambda: show_form(supplier_form)),
     ("Category", "./images/category.png", lambda: show_form(category_form)),
     ("Products", "./images/product.png", lambda: show_form(products_form)),
-    ("Sales", "./images/sales.png", lambda: show_form(sales_form)),
+    ("Billing", "./images/sales.png", lambda: show_form(billing_form)),
     ("Exit", "./images/exit.png", None)
 ]
 
@@ -123,6 +131,7 @@ for text, img_path, command in menu_buttons:
     )
     button.image = icon  # Prevent garbage collection
     button.pack(pady=1, fill="x")
+
 
 # Dashboard Stats Section
 def create_stat_frame(x, y, icon_path, label_text):
@@ -147,6 +156,7 @@ def create_stat_frame(x, y, icon_path, label_text):
     count_label.pack(pady=5)
 
     return count_label  # Return count label for updates
+
 
 # Dictionary to store count labels
 stats_labels = {}

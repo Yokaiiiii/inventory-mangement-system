@@ -192,6 +192,39 @@ def delete_product():
             connection.close()
 
 
+def create_tree_view(height, width, frame, columns, x, y):
+    treeview_frame = tk.Frame(frame, bg=COLORS["text"], height=height, width=width)
+    treeview_frame.place(x=x, y=y)
+    treeview_frame.propagate(False)  # Prevents resizing beyond defined width/height
+
+    # Define columns with estimated widths
+
+    # Create the Treeview
+    product_tree_view = ttk.Treeview(
+        treeview_frame, columns=list(columns.keys()), show="headings"
+    )
+
+    # Create Vertical Scrollbar
+    tree_y_scroll = ttk.Scrollbar(treeview_frame, orient="vertical", command=product_tree_view.yview)
+    product_tree_view.configure(yscrollcommand=tree_y_scroll.set)
+    tree_y_scroll.pack(side="right", fill='y')  # Attach to right side
+
+    # Create Horizontal Scrollbar
+    tree_x_scroll = ttk.Scrollbar(treeview_frame, orient="horizontal", command=product_tree_view.xview)
+    product_tree_view.configure(xscrollcommand=tree_x_scroll.set)
+    tree_x_scroll.pack(side="bottom", fill="x")  # Attach to bottom
+
+    # Pack the Treeview itself
+    product_tree_view.pack(fill="both", expand=True)
+
+    # Set column properties
+    for key, (label, width) in columns.items():
+        product_tree_view.heading(key, text=label)  # Set heading label
+        product_tree_view.column(key, width=width, anchor="center")  # Optimize width & alignment
+
+    return product_tree_view
+
+
 def treeview_data():
     connection, cursor = connect_database()
     if not cursor or not connection:
@@ -363,11 +396,6 @@ def products_form(window):
 
     show_all_button.grid(row=0, column=3, padx=10)
 
-    treeview_frame = tk.Frame(product_frame, bg=COLORS["text"], height=400, width=563)
-    treeview_frame.place(x=430, y=145)
-    treeview_frame.propagate(False)  # Prevents resizing beyond defined width/height
-
-    # Define columns with estimated widths
     product_tree_view_columns = {
         "productid": ("Product ID", 80),
         "category": ("Category", 100),
@@ -379,29 +407,8 @@ def products_form(window):
         "created_at": ("Created At", 100),
         "updated_at": ("Updated At", 100),
     }
-
-    # Create the Treeview
-    product_tree_view = ttk.Treeview(
-        treeview_frame, columns=list(product_tree_view_columns.keys()), show="headings"
-    )
-
-    # Create Vertical Scrollbar
-    tree_y_scroll = ttk.Scrollbar(treeview_frame, orient="vertical", command=product_tree_view.yview)
-    product_tree_view.configure(yscrollcommand=tree_y_scroll.set)
-    tree_y_scroll.pack(side="right", fill='y')  # Attach to right side
-
-    # Create Horizontal Scrollbar
-    tree_x_scroll = ttk.Scrollbar(treeview_frame, orient="horizontal", command=product_tree_view.xview)
-    product_tree_view.configure(xscrollcommand=tree_x_scroll.set)
-    tree_x_scroll.pack(side="bottom", fill="x")  # Attach to bottom
-
-    # Pack the Treeview itself
-    product_tree_view.pack(fill="both", expand=True)
-
-    # Set column properties
-    for key, (label, width) in product_tree_view_columns.items():
-        product_tree_view.heading(key, text=label)  # Set heading label
-        product_tree_view.column(key, width=width, anchor="center")  # Optimize width & alignment
+    product_tree_view = create_tree_view(height=400, width=563, frame=product_frame, columns=product_tree_view_columns,
+                                         x=430, y=145);
 
     product_tree_view.bind("<ButtonRelease-1>",
                            lambda event: select_product(event, category_combobox, supplier_combobox, name_entry,
